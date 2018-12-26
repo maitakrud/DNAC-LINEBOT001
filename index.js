@@ -19,9 +19,8 @@ app.post('/webhook', line.middleware(config), (req, res) => {
   Promise.all(req.body.events.map(event => {
     console.log('event', event);
     // check verify webhook event
-    if (event.replyToken === '00000000000000000000000000000000' ||
-      event.replyToken === 'ffffffffffffffffffffffffffffffff') {
-      return;
+    if (event.replyToken !== '' ) {
+      return handleEvent(event);
     }
     return handleEvent(event);
   }))
@@ -33,11 +32,11 @@ app.post('/webhook', line.middleware(config), (req, res) => {
 });
 
 // simple reply function
-const replyText = (token, texts) => {
-  texts = Array.isArray(texts) ? texts : [texts];
+const replyText = (token, message) => {
+  message = Array.isArray(message) ? message : [message];
   return client.replyMessage(
     token,
-    texts.map((text) => ({ type: 'text', text }))
+    message.map((text) => ({ type: 'text', text }))
   );
 };
 
@@ -46,19 +45,65 @@ function handleEvent(event) {
   switch (event.type) {
     case 'message':
       const message = event.message;
+      const inputCommand = message.text.split(' ');
+
+      let helpMessage = {
+        type: 'text',
+        id: message.id,
+        text: ''
+      };
+
       switch (message.type) {
         case 'text':
-          return handleText(message, event.replyToken);
+          if(inputCommand[0] == 'help'){
+
+            helpMessage.text = 'This line bot function have \n - get device by ip , command = get device ip "ip address" \n - get device by serial number , command = get device sn "Serial Number"'
+
+            return handleText(event.replyToken, helpMessage);
+
+          }else if (inputCommand[0] == 'get' && inputCommand[1] == 'device' && inputCommand[2] == 'ip') {
+            if(inputCommand.length == 4){
+
+              helpMessage.text = 'IP Address'
+
+            }else{
+
+              helpMessage.text = 'Invalid command format.'
+
+            }
+
+            return handleText(event.replyToken, helpMessage);
+
+          }else if (inputCommand[0] == 'get' && inputCommand[1] == 'device' && inputCommand[2] == 'sn') {
+            if(inputCommand.length == 4){
+
+              helpMessage.text = 'SN'
+
+            }else{
+
+              helpMessage.text = 'Invalid command format.'
+
+            }
+
+            return handleText(event.replyToken, helpMessage);
+
+          } else {
+
+            message.text = 'Please use "help" to show how to use this bot'
+
+            return handleText(event.replyToken, message);
+          }
+          return handleText(event.replyToken, message);
         case 'image':
-          return handleImage(message, event.replyToken);
+          return handleImage(event.replyToken, message);
         case 'video':
-          return handleVideo(message, event.replyToken);
+          return handleVideo(event.replyToken, message);
         case 'audio':
-          return handleAudio(message, event.replyToken);
+          return handleAudio(event.replyToken, message);
         case 'location':
-          return handleLocation(message, event.replyToken);
+          return handleLocation(event.replyToken, message);
         case 'sticker':
-          return handleSticker(message, event.replyToken);
+          return handleSticker(event.replyToken, message);
         default:
           throw new Error(`Unknown message: ${JSON.stringify(message)}`);
       }
@@ -88,27 +133,27 @@ function handleEvent(event) {
   }
 }
 
-function handleText(message, replyToken) {
+function handleText(replyToken, message) {
   return replyText(replyToken, message.text);
 }
 
-function handleImage(message, replyToken) {
+function handleImage(replyToken, message) {
   return replyText(replyToken, 'Got Image');
 }
 
-function handleVideo(message, replyToken) {
+function handleVideo(replyToken, message) {
   return replyText(replyToken, 'Got Video');
 }
 
-function handleAudio(message, replyToken) {
+function handleAudio(replyToken, message) {
   return replyText(replyToken, 'Got Audio');
 }
 
-function handleLocation(message, replyToken) {
+function handleLocation(replyToken, message) {
   return replyText(replyToken, 'Got Location');
 }
 
-function handleSticker(message, replyToken) {
+function handleSticker(replyToken, message) {
   return replyText(replyToken, 'Got Sticker');
 }
 
