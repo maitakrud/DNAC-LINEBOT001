@@ -1,5 +1,7 @@
 {
-  "port" : "3000",
+  "portNodeJS" : "3000",
+  "portPython" : "4000",
   "channelAccessToken": "YUP9KNW52O5l0TooW7NMgE4EbSt74yei9wtWK6Hpx5QeaiWYt+5ochl5d5eJnPqIWsB3c5EVczBPal4Rxrf/hsbNU9j/80DXQjRSH1uZSRD/V/I4Zy31ipoLh06EYeBnY8AH1jI4cGH7H/5cIMhgPgdB04t89/1O/w1cDnyilFU=",
   "channelSecret": "56464e011cd9a87ee1c77d149cbc098d"
+
 }

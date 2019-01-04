@@ -3,6 +3,9 @@
 const line = require('@line/bot-sdk');
 const express = require('express');
 const config = require('./config.json');
+const {PythonShell} = require('python-shell');
+const {promisify} = require('util');
+const fs = require('fs')
 
 // create LINE SDK client
 const client = new line.Client(config);
@@ -19,8 +22,9 @@ app.post('/webhook', line.middleware(config), (req, res) => {
   Promise.all(req.body.events.map(event => {
     console.log('event', event);
     // check verify webhook event
-    if (event.replyToken !== '' ) {
-      return handleEvent(event);
+    if (event.replyToken === '00000000000000000000000000000000' ||
+      event.replyToken === 'ffffffffffffffffffffffffffffffff') {
+      return;
     }
     return handleEvent(event);
   }))
@@ -32,11 +36,11 @@ app.post('/webhook', line.middleware(config), (req, res) => {
 });
 
 // simple reply function
-const replyText = (token, message) => {
-  message = Array.isArray(message) ? message : [message];
+const replyText = (token, texts) => {
+  texts = Array.isArray(texts) ? texts : [texts];
   return client.replyMessage(
     token,
-    message.map((text) => ({ type: 'text', text }))
+    texts.map((text) => ({ type: 'text', text }))
   );
 };
 
@@ -45,65 +49,105 @@ function handleEvent(event) {
   switch (event.type) {
     case 'message':
       const message = event.message;
-      const inputCommand = message.text.split(' ');
-
-      let helpMessage = {
-        type: 'text',
-        id: message.id,
-        text: ''
-      };
-
       switch (message.type) {
         case 'text':
-          if(inputCommand[0] == 'help'){
 
-            helpMessage.text = 'This line bot function have \n - get device by ip , command = get device ip "ip address" \n - get device by serial number , command = get device sn "Serial Number"'
+        const inputCommand = message.text.split(' ');
 
-            return handleText(event.replyToken, helpMessage);
+        if(inputCommand.length == 1 && inputCommand[0] == 'help'){
 
-          }else if (inputCommand[0] == 'get' && inputCommand[1] == 'device' && inputCommand[2] == 'ip') {
-            if(inputCommand.length == 4){
+          message.text = 'This line bot function have \n - get deveices all , command = get device summary \n - get device by ip , command = get device ip "ip address" \n - get device by serial number , command = get device sn "Serial Number"'
+          return handleText(message, event.replyToken);
+        }else if(inputCommand.length >= 3 && inputCommand[0] == 'get' && inputCommand[1] == 'device') {
 
-              helpMessage.text = 'IP Address'
+          if(inputCommand.length == 3){
+              if(inputCommand[2] == 'summary'){
+                var parthPythonSummary = 'getDeviceSummary.py'
+                const runPy = new PythonShell(parthPythonSummary);
+                let msg = ''
+                runPy.on('message' , function(response){
+                  msg += response
+                  msg += '\n'
+                });
+
+                return runPy.end(() => {
+                  console.log('Collecting response done.')
+                  message.text = msg
+                  console.log('Sending back to client.')
+                  return handleText(message, event.replyToken)
+                })
+              }else{
+                return invalidCommand(message, event.replyToken)
+              }
+            }else if (inputCommand.length >= 4){
+            if(inputCommand.length == 4 && inputCommand[2] == 'ip'){
+
+              var parthPythonSummary = 'getDeviceIP.py'
+              let options = {
+                args : [inputCommand[3]]
+              };
+
+              const runPy = new PythonShell(parthPythonSummary, options);
+              console.log(options)
+              let msg = ''
+              runPy.on('message', function(response){
+                msg += response
+                msg += '\n'
+              });
+
+              return runPy.end(() => {
+                console.log('Collecting response done.')
+                message.text = msg
+                console.log('Sending back to client.')
+                return handleText(message, event.replyToken)
+              })
+
+              }else if (inputCommand.length == 4 && inputCommand[2] == 'sn'){
+
+                var parthPythonSummary = 'getDeviceSN.py'
+                let options = {
+                  args : [inputCommand[3]]
+                };
+
+                const runPy = new PythonShell(parthPythonSummary, options);
+                console.log(options)
+                let msg = ''
+                runPy.on('message', function(response){
+                  msg += response
+                  msg += '\n'
+                });
+
+                return runPy.end(() => {
+                  console.log('Collecting response done.')
+                  message.text = msg
+                  console.log('Sending back to client.')
+                  return handleText(message, event.replyToken)
+                })
 
             }else{
 
-              helpMessage.text = 'Invalid command format.'
+              return invalidCommand(message, event.replyToken)
 
             }
 
-            return handleText(event.replyToken, helpMessage);
-
-          }else if (inputCommand[0] == 'get' && inputCommand[1] == 'device' && inputCommand[2] == 'sn') {
-            if(inputCommand.length == 4){
-
-              helpMessage.text = 'SN'
-
-            }else{
-
-              helpMessage.text = 'Invalid command format.'
-
-            }
-
-            return handleText(event.replyToken, helpMessage);
-
-          } else {
-
-            message.text = 'Please use "help" to show how to use this bot'
-
-            return handleText(event.replyToken, message);
           }
-          return handleText(event.replyToken, message);
+        }else {
+
+          message.text = 'Please use "help" to show how to use this bot'
+          return handleText(message, event.replyToken)
+
+        }
+          return handleText(message, event.replyToken);
         case 'image':
-          return handleImage(event.replyToken, message);
+          return handleImage(message, event.replyToken);
         case 'video':
-          return handleVideo(event.replyToken, message);
+          return handleVideo(message, event.replyToken);
         case 'audio':
-          return handleAudio(event.replyToken, message);
+          return handleAudio(message, event.replyToken);
         case 'location':
-          return handleLocation(event.replyToken, message);
+          return handleLocation(message, event.replyToken);
         case 'sticker':
-          return handleSticker(event.replyToken, message);
+          return handleSticker(message, event.replyToken);
         default:
           throw new Error(`Unknown message: ${JSON.stringify(message)}`);
       }
@@ -133,31 +177,36 @@ function handleEvent(event) {
   }
 }
 
-function handleText(replyToken, message) {
+function handleText(message, replyToken) {
   return replyText(replyToken, message.text);
 }
 
-function handleImage(replyToken, message) {
+function handleImage(message, replyToken) {
   return replyText(replyToken, 'Got Image');
 }
 
-function handleVideo(replyToken, message) {
+function handleVideo(message, replyToken) {
   return replyText(replyToken, 'Got Video');
 }
 
-function handleAudio(replyToken, message) {
+function handleAudio(message, replyToken) {
   return replyText(replyToken, 'Got Audio');
 }
 
-function handleLocation(replyToken, message) {
+function handleLocation(message, replyToken) {
   return replyText(replyToken, 'Got Location');
 }
 
-function handleSticker(replyToken, message) {
+function handleSticker(message, replyToken) {
   return replyText(replyToken, 'Got Sticker');
 }
 
-const port = config.port;
+function invalidCommand(message, replyToken){
+  message.text = 'Command is invalid. Please check command by "help".'
+  return handleText(message, replyToken);
+}
+
+const port = config.portNodeJS;
 app.listen(port, () => {
   console.log(`listening on ${port}`);
 });
